@@ -10,14 +10,13 @@ RUN wget https://dl.min.io/server/minio/release/linux-amd64/minio -q \
 
 RUN mkdir /data
 
-CMD ["minio", "server", "/data", "--access-log", "/dev/null", "--root-bucket", "images", "--default-expire", "300"]
+ENV $(cat .env | xargs)
 
 WORKDIR /app
-ENV $(cat .env-dev | xargs)
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
-COPY requirements.txt ./
+COPY . .
 RUN pip install -r requirements.txt
 
-COPY . .
+RUN chmod +x /app/entrypoint.sh
 
-CMD ["python", "api.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
