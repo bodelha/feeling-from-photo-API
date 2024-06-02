@@ -4,19 +4,13 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://dl.min.io/server/minio/release/linux-amd64/minio -q \
-    && chmod +x minio \
-    && mv minio /usr/local/bin/
-
-RUN mkdir /data
-
-ENV $(cat .env | xargs)
-
-WORKDIR /app
 RUN pip install torch --index-url https://download.pytorch.org/whl/cpu
-COPY . .
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-RUN chmod +x /app/entrypoint.sh
+COPY . .
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+WORKDIR /app
+
+
+CMD ["python", "api.py"]

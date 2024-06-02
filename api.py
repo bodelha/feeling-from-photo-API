@@ -1,65 +1,37 @@
-import base64
-import json
+from PIL import Image
 from flask import Flask, request, jsonify
 from model import detect_emotions
-from minio import Minio
-from minio.error import S3Error
-from uuid import uuid4
-import io
 
-MINIO_URL = "127.0.0.1:9000"
-MINIO_BUCKET = "images"
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
 
 app = Flask(__name__)
 
-# Initialize MinIO client
-client = Minio(
-    MINIO_URL,
-    access_key=MINIO_ACCESS_KEY,
-    secret_key=MINIO_SECRET_KEY,
-    secure=False
-)
-
-# Ensure bucket exists
-if not client.bucket_exists(MINIO_BUCKET):
-    client.make_bucket(MINIO_BUCKET)
 
 @app.route("/detect-emotions", methods=["POST"])
 def detect_emotions_endpoint():
     try:
-        data = request.get_json()
-        image_data_base64 = data["image_data"]
+        if "image_file" not in request.files:
+            return jsonify({"error": "Missing image file"}), 400
 
-        # Decode base64 data
-        image_data_bytes = base64.b64decode(image_data_base64)
+        image_file = request.files["image_file"]
+        print(f"Image file: {image_file}")
 
-        # Generate unique filename
-        filename = f"{uuid4()}.jpg"
+        if image_file.mimetype not in ["image/jpeg", "image/png"]:
+            return (
+                jsonify({"error": "Invalid image format. Only JPEG and PNG supported"}),
+                400,
+            )
 
-        # Upload image to Minio bucket
-        image_data_stream = io.BytesIO(image_data_bytes)
-        client.put_object(
-            MINIO_BUCKET, 
-            filename, 
-            image_data_stream, 
-            length=len(image_data_bytes), 
-            content_type="image/jpeg"
-        )
+        image_data_bytes = image_file.stream
 
-        # Generate image URL
-        image_url = f"http://{MINIO_URL}/{MINIO_BUCKET}/{filename}"
+        print("Processing image data..")
+        image_pil = Image.open(image_data_bytes)
+        emotions = detect_emotions(image_pil)
 
-        # Call emotion detection with image URL
-        emotions = detect_emotions(image_url)
         print(emotions)
-
         return jsonify({"emotions": emotions})
 
-    except S3Error as e:
-        return jsonify({"error": str(e)}), 500
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
 
 
